@@ -27,7 +27,7 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIG
 app.use(helmet());
 
 // CORS with explicit methods/headers
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
     if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
@@ -37,7 +37,10 @@ app.use(cors({
   allowedHeaders: ['Authorization', 'Content-Type'],
   credentials: true,
   optionsSuccessStatus: 204,
-}));
+};
+app.use(cors(corsOptions));
+// Ensure preflight requests are handled for all routes
+app.options('*', cors(corsOptions));
 
 // Body limits
 app.use(express.json({ limit: '100kb' }));

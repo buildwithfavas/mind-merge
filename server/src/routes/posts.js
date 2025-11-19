@@ -31,6 +31,9 @@ router.post('/', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid post id' });
+    }
     const { title, url } = req.body || {};
     const post = await Post.findById(id);
     if (!post) return res.status(404).json({ error: 'Not found' });
@@ -58,6 +61,9 @@ router.patch('/:id', async (req, res) => {
 router.get('/', async (req, res) => {
   const includeDone = req.query.includeDone === 'true';
   const mine = req.query.mine === 'true';
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const pageSize = Math.max(1, Math.min(50, parseInt(req.query.pageSize, 10) || 10));
+  const doPaginate = !!req.query.page; // only paginate if client requested a page
   try {
     let posts = await Post.find().sort({ createdAt: -1 }).lean();
 
@@ -72,10 +78,14 @@ router.get('/', async (req, res) => {
       const done = await UserPostStatus.find({ userId: req.user.uid }).select('postId').lean();
       const doneSet = new Set(done.map((d) => String(d.postId)));
       const filtered = posts.filter((p) => !doneSet.has(String(p._id)));
-      const userIds = Array.from(new Set(filtered.map((p) => p.addedByUserId)));
+      const total = filtered.length;
+      const sliceStart = (page - 1) * pageSize;
+      const sliceEnd = sliceStart + pageSize;
+      const pageList = doPaginate ? filtered.slice(sliceStart, sliceEnd) : filtered;
+      const userIds = Array.from(new Set(pageList.map((p) => p.addedByUserId)));
       const users = await User.find({ _id: { $in: userIds } }).select('name photoURL email').lean();
       const byId = new Map(users.map((u) => [u._id, u]));
-      const ids = filtered.map((p) => p._id);
+      const ids = pageList.map((p) => p._id);
       // Aggregate metrics (likes, comments) across all users
       const metricsAgg = await UserPostStatus.aggregate([
         { $match: { postId: { $in: ids } } },
@@ -93,7 +103,7 @@ router.get('/', async (req, res) => {
         .select('postId liked commented')
         .lean();
       const meById = new Map(meStatuses.map((s) => [String(s.postId), { liked: !!s.liked, commented: !!s.commented }]));
-      const withSharer = filtered.map((p) => {
+      const withSharer = pageList.map((p) => {
         const u = byId.get(p.addedByUserId) || {};
         const derivedName = u.name || (u.email ? String(u.email).split('@')[0] : 'Friend');
         const avatar = u.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(derivedName)}&background=1f2937&color=f8fafc`;
@@ -107,13 +117,20 @@ router.get('/', async (req, res) => {
           me: meById.get(String(p._id)) || { liked: false, commented: false }
         };
       });
+      if (doPaginate) {
+        return res.json({ items: withSharer, page, pageSize, total, hasMore: sliceEnd < total });
+      }
       return res.json(withSharer);
     }
 
-    const userIds = Array.from(new Set(posts.map((p) => p.addedByUserId)));
+    const total = posts.length;
+    const sliceStart = (page - 1) * pageSize;
+    const sliceEnd = sliceStart + pageSize;
+    const pageList = doPaginate ? posts.slice(sliceStart, sliceEnd) : posts;
+    const userIds = Array.from(new Set(pageList.map((p) => p.addedByUserId)));
     const users = await User.find({ _id: { $in: userIds } }).select('name photoURL email').lean();
     const byId = new Map(users.map((u) => [u._id, u]));
-    const ids = posts.map((p) => p._id);
+    const ids = pageList.map((p) => p._id);
     const metricsAgg = await UserPostStatus.aggregate([
       { $match: { postId: { $in: ids } } },
       {
@@ -129,7 +146,7 @@ router.get('/', async (req, res) => {
       .select('postId liked commented')
       .lean();
     const meById = new Map(meStatuses.map((s) => [String(s.postId), { liked: !!s.liked, commented: !!s.commented }]));
-    const withSharer = posts.map((p) => {
+    const withSharer = pageList.map((p) => {
       const u = byId.get(p.addedByUserId) || {};
       const derivedName = u.name || (u.email ? String(u.email).split('@')[0] : 'Friend');
       const avatar = u.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(derivedName)}&background=1f2937&color=f8fafc`;
@@ -143,6 +160,9 @@ router.get('/', async (req, res) => {
         me: meById.get(String(p._id)) || { liked: false, commented: false }
       };
     });
+    if (doPaginate) {
+      return res.json({ items: withSharer, page, pageSize, total, hasMore: sliceEnd < total });
+    }
     return res.json(withSharer);
   } catch (err) {
     console.error('List posts error:', err);
@@ -154,6 +174,9 @@ router.get('/', async (req, res) => {
 router.post('/:id/done', async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid post id' });
+    }
     await UserPostStatus.findOneAndUpdate(
       { userId: req.user.uid, postId: id },
       { userId: req.user.uid, postId: id, status: 'done' },
@@ -170,6 +193,9 @@ router.post('/:id/done', async (req, res) => {
 router.delete('/:id/done', async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid post id' });
+    }
     await UserPostStatus.deleteOne({ userId: req.user.uid, postId: id });
     return res.json({ ok: true });
   } catch (err) {
@@ -182,6 +208,9 @@ router.delete('/:id/done', async (req, res) => {
 router.post('/:id/engage', async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid post id' });
+    }
     const { liked, commented } = req.body || {};
     const likeVal = !!liked;
     const commVal = !!commented;
@@ -212,6 +241,9 @@ router.post('/:id/engage', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid post id' });
+    }
     const post = await Post.findById(id);
     if (!post) return res.status(404).json({ error: 'Not found' });
     if (post.addedByUserId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });

@@ -15,6 +15,19 @@ async function ensureInitialized() {
 }
 
 export default async function handler(req, res) {
-  await ensureInitialized();
+  const url = req.url || '';
+  const isHealth = url === '/api/health' || url.endsWith('/api/health');
+
+  // Serve CORS preflight and health without waiting for init
+  if (req.method === 'OPTIONS' || isHealth) {
+    return app(req, res);
+  }
+
+  try {
+    await ensureInitialized();
+  } catch (e) {
+    console.error('Init failed before handling request:', e);
+    // Fall through to app anyway so global error handler / CORS can respond
+  }
   return app(req, res);
 }

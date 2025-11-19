@@ -23,12 +23,13 @@ html, body, #root {
     @apply rounded-xl border bg-white/80 backdrop-blur dark:bg-zinc-900/70 border-zinc-200 dark:border-zinc-800 shadow-sm;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors border;
+    @apply inline-flex items-center justify-center px-3.5 py-2 rounded-md border border-transparent text-sm font-medium transition-colors;
   }
   .btn-primary {
-    @apply bg-indigo-600 text-white border-indigo-700 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed;
+    @apply btn bg-indigo-600 text-white hover:bg-indigo-500 active:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400/40;
   }
   .btn-ghost {
+    @apply btn bg-transparent text-zinc-200 hover:bg-zinc-800/70 focus:outline-none focus:ring-2 focus:ring-zinc-300/10;
     @apply border-zinc-200 dark:border-zinc-800 hover:bg-indigo-50 dark:hover:bg-zinc-800;
   }
   .input {

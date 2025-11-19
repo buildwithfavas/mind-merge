@@ -31,7 +31,9 @@ export function AuthProvider({ children }) {
     idToken,
     loading,
     signIn: async () => {
-      await signInWithPopup(auth, googleProvider);
+      const cred = await signInWithPopup(auth, googleProvider);
+      const token = await cred.user.getIdToken(true);
+      localStorage.setItem('idToken', token);
     },
     signOut: async () => {
       await fbSignOut(auth);

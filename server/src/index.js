@@ -13,9 +13,19 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'http://localhost:5173';
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGIN || 'http://localhost:5173,http://127.0.0.1:5173')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 
-app.use(cors({ origin: ALLOWED_ORIGIN, credentials: true }));
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true
+}));
 app.use(express.json());
 app.use(morgan('dev'));
 

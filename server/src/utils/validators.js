@@ -9,3 +9,12 @@ export function isValidLinkedInUrl(urlString) {
     return false;
   }
 }
+
+export function isValidHttpsUrl(urlString) {
+  try {
+    const u = new URL(urlString);
+    return u.protocol === 'https:';
+  } catch (e) {
+    return false;
+  }
+}

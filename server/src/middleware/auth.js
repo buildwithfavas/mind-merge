@@ -24,15 +24,29 @@ export default async function auth(req, res, next) {
       picture: decoded.picture || null
     };
 
-    // Upsert user record: do not overwrite existing name
+    // Upsert user record: do not overwrite existing name or photoURL chosen by the user
     await User.findByIdAndUpdate(
       req.user.uid,
       {
-        $set: { email: req.user.email, photoURL: req.user.picture },
-        $setOnInsert: { _id: req.user.uid, name: req.user.name }
+        $set: { email: req.user.email },
+        $setOnInsert: { _id: req.user.uid, name: req.user.name, photoURL: req.user.picture }
       },
       { upsert: true, setDefaultsOnInsert: true }
     );
+    // Backfill missing/empty name without overwriting a user's chosen profile name
+    if (req.user.name) {
+      await User.updateOne(
+        { _id: req.user.uid, $or: [ { name: { $exists: false } }, { name: null }, { name: '' } ] },
+        { $set: { name: req.user.name } }
+      );
+    }
+    // Backfill missing/empty photoURL from provider picture only if user's photoURL is not already set
+    if (req.user.picture) {
+      await User.updateOne(
+        { _id: req.user.uid, $or: [ { photoURL: { $exists: false } }, { photoURL: null }, { photoURL: '' } ] },
+        { $set: { photoURL: req.user.picture } }
+      );
+    }
 
     next();
   } catch (err) {

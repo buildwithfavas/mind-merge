@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { useEffect, useState, lazy, Suspense } from 'react';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar.jsx';
 import Topbar from './components/Topbar.jsx';
 import Completed from './pages/Completed.jsx';
@@ -13,35 +13,35 @@ import SignIn from './pages/SignIn.jsx';
 import SignUp from './pages/SignUp.jsx';
 import Submit from './pages/Submit.jsx';
 import { useAuth } from './state/AuthContext.jsx';
+import { useToast } from './state/ToastContext.jsx';
 import api from './utils/api.js';
-import AdminDashboard from './pages/admin/AdminDashboard.jsx';
-import AdminUsers from './pages/admin/AdminUsers.jsx';
-import AdminPosts from './pages/admin/AdminPosts.jsx';
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard.jsx'));
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers.jsx'));
+const AdminPosts = lazy(() => import('./pages/admin/AdminPosts.jsx'));
 import NotFound from './pages/NotFound.jsx';
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
-  const [checking, setChecking] = useState(true);
-  const [ok, setOk] = useState(false);
+  const { push } = useToast() || { push: () => {} };
+  const navigate = useNavigate();
 
   useEffect(() => {
     let active = true;
-    const run = async () => {
-      if (!user) { setChecking(false); setOk(false); return; }
+    async function check() {
+      if (!user || loading) return;
       try {
         await api.get('/me/profile');
-        if (active) { setOk(true); }
       } catch {
-        if (active) { setOk(false); }
-      } finally {
-        if (active) setChecking(false);
+        if (!active) return;
+        push({ type: 'error', title: 'Profile incomplete', desc: 'Please complete your profile to continue.' });
+        navigate('/signup', { replace: true });
       }
-    };
-    if (!loading) run();
+    }
+    check();
     return () => { active = false; };
-  }, [user, loading]);
+  }, [user, loading, navigate, push]);
 
-  if (loading || checking) {
+  if (loading) {
     return (
       <div className="fixed inset-0 grid place-items-center bg-zinc-950">
         <div className="h-10 w-10 rounded-full border-2 border-zinc-700 border-t-white animate-spin" />
@@ -49,7 +49,6 @@ function Protected({ children }) {
     );
   }
   if (!user) return <Navigate to="/signin" replace />;
-  if (!ok) return <Navigate to="/signup" replace />;
   return children;
 }
 
@@ -126,9 +125,42 @@ export default function App() {
             <Route path="/myposts" element={<Protected><MyPosts /></Protected>} />
             <Route path="/profile" element={<Protected><Profile /></Protected>} />
             <Route path="/profiles" element={<Protected><Profiles /></Protected>} />
-            <Route path="/admin" element={<Protected><AdminRoute><AdminDashboard /></AdminRoute></Protected>} />
-            <Route path="/admin/users" element={<Protected><AdminRoute><AdminUsers /></AdminRoute></Protected>} />
-            <Route path="/admin/posts" element={<Protected><AdminRoute><AdminPosts /></AdminRoute></Protected>} />
+            <Route
+              path="/admin"
+              element={
+                <Protected>
+                  <AdminRoute>
+                    <Suspense fallback={<div className="p-4">Loading…</div>}>
+                      <AdminDashboard />
+                    </Suspense>
+                  </AdminRoute>
+                </Protected>
+              }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <Protected>
+                  <AdminRoute>
+                    <Suspense fallback={<div className="p-4">Loading…</div>}>
+                      <AdminUsers />
+                    </Suspense>
+                  </AdminRoute>
+                </Protected>
+              }
+            />
+            <Route
+              path="/admin/posts"
+              element={
+                <Protected>
+                  <AdminRoute>
+                    <Suspense fallback={<div className="p-4">Loading…</div>}>
+                      <AdminPosts />
+                    </Suspense>
+                  </AdminRoute>
+                </Protected>
+              }
+            />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

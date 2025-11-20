@@ -7,17 +7,27 @@ import { isValidLinkedInUrl, isValidHttpsUrl, isValidLinkedInProfileUrl } from '
 const router = express.Router();
 
 router.get('/', async (req, res) => {
-  const me = await User.findById(req.user.uid).select('linkedinUrl role blocked blockedReason').lean();
-  return res.json({
-    uid: req.user.uid,
-    email: req.user.email,
-    name: req.user.name,
-    picture: req.user.picture,
-    role: me?.role || 'user',
-    blocked: !!me?.blocked,
-    blockedReason: me?.blockedReason || null,
-    linkedinUrl: me?.linkedinUrl || null
-  });
+  try {
+    // Prefer values from auth middleware to avoid extra DB hit and reduce latency
+    let linkedinUrl = null;
+    try {
+      const meDoc = await User.findById(req.user.uid).select('linkedinUrl').lean();
+      linkedinUrl = meDoc?.linkedinUrl || null;
+    } catch {}
+    return res.json({
+      uid: req.user.uid,
+      email: req.user.email,
+      name: req.user.name,
+      picture: req.user.picture,
+      role: req.user.role || 'user',
+      blocked: !!req.user.blocked,
+      blockedReason: req.user.blockedReason || null,
+      linkedinUrl
+    });
+  } catch (e) {
+    console.error('me route error:', e);
+    return res.status(500).json({ error: 'Failed to load profile' });
+  }
 });
 
 router.get('/done', async (req, res) => {

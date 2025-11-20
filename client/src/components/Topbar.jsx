@@ -4,7 +4,7 @@ import { useAuth } from '../state/AuthContext.jsx';
 import Avatar from './Avatar.jsx';
 
 export default function Topbar({ minimal = false }) {
-  const { user, signOut } = useAuth();
+  const { user, signOut, role } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false); // mobile hamburger menu
   const [userMenuOpen, setUserMenuOpen] = useState(false); // desktop user dropdown
   return (
@@ -67,6 +67,14 @@ export default function Topbar({ minimal = false }) {
               <Link to="/myposts" className="px-3 py-2 rounded-md hover:bg-zinc-800/80" onClick={() => setMobileOpen(false)}>My Posts</Link>
               <Link to="/completed" className="px-3 py-2 rounded-md hover:bg-zinc-800/80" onClick={() => setMobileOpen(false)}>Completed</Link>
               <Link to="/profile" className="px-3 py-2 rounded-md hover:bg-zinc-800/80" onClick={() => setMobileOpen(false)}>Profile</Link>
+              {role === 'admin' ? (
+                <>
+                  <div className="mt-1 mb-1 h-px bg-zinc-800" />
+                  <Link to="/admin" className="px-3 py-2 rounded-md hover:bg-zinc-800/80" onClick={() => setMobileOpen(false)}>Admin</Link>
+                  <Link to="/admin/users" className="px-3 py-2 rounded-md hover:bg-zinc-800/80" onClick={() => setMobileOpen(false)}>Admin Users</Link>
+                  <Link to="/admin/posts" className="px-3 py-2 rounded-md hover:bg-zinc-800/80" onClick={() => setMobileOpen(false)}>Admin Posts</Link>
+                </>
+              ) : null}
               <button className="text-left px-3 py-2 rounded-md hover:bg-zinc-800/80" onClick={() => { setMobileOpen(false); signOut(); }}>Log Out</button>
             </nav>
           </div>

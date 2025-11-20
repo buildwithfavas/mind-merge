@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const ToastCtx = createContext(null);
 
@@ -20,6 +20,18 @@ export function ToastProvider({ children }) {
   }, [remove]);
 
   const value = useMemo(() => ({ toasts, push, remove }), [toasts, push, remove]);
+
+  // Allow global toasts via window dispatchEvent(new CustomEvent('app:toast', { detail: { title, desc, type, timeout } }))
+  useEffect(() => {
+    const handler = (e) => {
+      const d = e?.detail || {};
+      push({ title: d.title, desc: d.desc, type: d.type, timeout: d.timeout });
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('app:toast', handler);
+      return () => window.removeEventListener('app:toast', handler);
+    }
+  }, [push]);
 
   return (
     <ToastCtx.Provider value={value}>

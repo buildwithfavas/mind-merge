@@ -7,4 +7,8 @@ const postSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// Indexes to optimize feed queries and sorting
+postSchema.index({ createdAt: -1 });
+postSchema.index({ addedByUserId: 1, createdAt: -1 });
+
 export default mongoose.model('Post', postSchema);

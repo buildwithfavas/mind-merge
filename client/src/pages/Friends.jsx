@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../utils/api.js';
 import { useToast } from '../state/ToastContext.jsx';
+import Avatar from '../components/Avatar.jsx';
 
 export default function Friends() {
   const { push } = useToast() || { push: () => {} };
@@ -80,11 +81,7 @@ export default function Friends() {
           {items.map((u) => (
             <div key={u._id} className="rounded-2xl bg-zinc-900/70 border border-zinc-800 p-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                {u.photoURL ? (
-                  <img src={u.photoURL} alt="" className="h-12 w-12 rounded-full object-cover" />
-                ) : (
-                  <div className="h-12 w-12 rounded-full bg-zinc-800" />
-                )}
+                <Avatar name={u.name || u.email || 'User'} src={u.photoURL} size={48} />
                 <div className="min-w-0">
                   <div className="font-semibold truncate">{u.name || u.email || u._id}</div>
                   {u.linkedinUrl ? (

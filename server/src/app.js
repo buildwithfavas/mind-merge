@@ -16,11 +16,10 @@ dotenv.config();
 
 const app = express();
 
-if (process.env.NODE_ENV === 'production') {
-  app.set('trust proxy', 1);
-}
+// Behind Vercel proxy in dev and prod
+app.set('trust proxy', 1);
 
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGIN || 'http://localhost:5173,http://127.0.0.1:5173,https://mind-merge-beryl.vercel.app')
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGIN || 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,https://mind-merge-beryl.vercel.app')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../utils/api.js';
 import { useToast } from '../state/ToastContext.jsx';
+import Avatar from '../components/Avatar.jsx';
 
 function Section({ title, children, extra }) {
   return (
@@ -113,20 +114,23 @@ export default function Connect() {
           <div className="grid gap-3 sm:grid-cols-2">
             {sug.map((u) => (
               <div key={u._id} className="card p-4 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-medium truncate">{u.name || u.email || u._id}</div>
-                  <div className="text-sm opacity-70 truncate">{u.email}</div>
-                  {u.linkedinUrl ? (
-                    <a
-                      href={u.linkedinUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm text-indigo-600 dark:text-indigo-400 underline truncate"
-                      title="Open LinkedIn profile"
-                    >
-                      LinkedIn
-                    </a>
-                  ) : null}
+                <div className="flex items-center gap-3 min-w-0">
+                  <Avatar name={u.name || u.email || 'User'} src={u.photoURL} size={40} />
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{u.name || u.email || u._id}</div>
+                    <div className="text-sm opacity-70 truncate">{u.email}</div>
+                    {u.linkedinUrl ? (
+                      <a
+                        href={u.linkedinUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm text-indigo-600 dark:text-indigo-400 underline truncate"
+                        title="Open LinkedIn profile"
+                      >
+                        LinkedIn
+                      </a>
+                    ) : null}
+                  </div>
                 </div>
                 <button className="btn btn-primary" onClick={() => request(u._id)}>Connect</button>
               </div>
@@ -167,20 +171,23 @@ export default function Connect() {
           <div className="space-y-3">
             {reqs.map((r) => (
               <div key={r.requesterId} className="card p-4 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-medium truncate">{r.name || r.email || r.requesterId}</div>
-                  <div className="text-sm opacity-70 truncate">{r.email}</div>
-                  {r.linkedinUrl ? (
-                    <a
-                      href={r.linkedinUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm text-indigo-600 dark:text-indigo-400 underline truncate"
-                      title="Open LinkedIn profile"
-                    >
-                      LinkedIn
-                    </a>
-                  ) : null}
+                <div className="flex items-center gap-3 min-w-0">
+                  <Avatar name={r.name || r.email || 'User'} src={r.photoURL} size={40} />
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{r.name || r.email || r.requesterId}</div>
+                    <div className="text-sm opacity-70 truncate">{r.email}</div>
+                    {r.linkedinUrl ? (
+                      <a
+                        href={r.linkedinUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm text-indigo-600 dark:text-indigo-400 underline truncate"
+                        title="Open LinkedIn profile"
+                      >
+                        LinkedIn
+                      </a>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <button className="btn btn-primary" onClick={() => respond(r.requesterId, 'accept')}>Accept</button>

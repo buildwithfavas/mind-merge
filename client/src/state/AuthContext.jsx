@@ -17,20 +17,22 @@ export function AuthProvider({ children }) {
         setUser(u);
         setIdToken(token);
         localStorage.setItem('idToken', token);
-        // hydrate role/blocked
-        try {
-          const { data } = await api.get('/me');
-          setMeta({ role: data.role || 'user', blocked: !!data.blocked, blockedReason: data.blockedReason || null });
-        } catch {
-          setMeta({ role: 'user', blocked: false, blockedReason: null });
-        }
+        // Mark ready immediately; hydrate role/blocked in background to avoid blocking UI
+        setLoading(false);
+        api.get('/me')
+          .then(({ data }) => {
+            setMeta({ role: data.role || 'user', blocked: !!data.blocked, blockedReason: data.blockedReason || null });
+          })
+          .catch(() => {
+            setMeta({ role: 'user', blocked: false, blockedReason: null });
+          });
       } else {
         setUser(null);
         setIdToken(null);
         localStorage.removeItem('idToken');
         setMeta({ role: 'user', blocked: false, blockedReason: null });
+        setLoading(false);
       }
-      setLoading(false);
     });
     return () => unsub();
   }, []);

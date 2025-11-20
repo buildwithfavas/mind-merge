@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../utils/api.js';
 import { useToast } from '../state/ToastContext.jsx';
+import Avatar from '../components/Avatar.jsx';
 
 export default function Feed() {
   const [items, setItems] = useState([]);
@@ -133,7 +134,10 @@ export default function Feed() {
         next.delete(id);
         return next;
       });
-    } catch (e) {}
+    } catch (e) {
+      const err = e?.response?.data?.error || 'Failed to mark as done';
+      push({ type: 'error', title: 'Action failed', desc: err });
+    }
   };
 
   const markVisited = (id) => {
@@ -250,11 +254,7 @@ export default function Feed() {
             return (
               <div key={p._id} className="rounded-2xl bg-zinc-900/70 border border-zinc-800 p-4">
                 <div className="flex items-center gap-3 mb-2 text-sm text-zinc-400">
-                  {p?.sharer?.photoURL ? (
-                    <img src={p.sharer.photoURL} alt="" className="h-8 w-8 rounded-full object-cover" />
-                  ) : (
-                    <div className="h-8 w-8 rounded-full bg-zinc-800" />
-                  )}
+                  <Avatar name={p?.sharer?.name || 'Someone'} src={p?.sharer?.photoURL} size={32} />
                   <div>Shared by <span className="text-zinc-200 font-medium">{p?.sharer?.name || 'Someone'}</span></div>
                 </div>
                 <div

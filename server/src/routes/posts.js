@@ -23,6 +23,10 @@ router.post('/', async (req, res) => {
     return res.status(201).json(post);
   } catch (err) {
     console.error('Create post error:', err);
+    // Handle duplicate key race condition gracefully
+    if (err && (err.code === 11000 || String(err.message || '').includes('E11000'))) {
+      return res.status(409).json({ error: 'This LinkedIn post has already been shared.' });
+    }
     return res.status(500).json({ error: 'Failed to create post' });
   }
 });
@@ -53,11 +57,14 @@ router.patch('/:id', async (req, res) => {
     return res.json(updated);
   } catch (err) {
     console.error('Update post error:', err);
+    if (err && (err.code === 11000 || String(err.message || '').includes('E11000'))) {
+      return res.status(409).json({ error: 'A post with this URL already exists.' });
+    }
     return res.status(500).json({ error: 'Failed to update post' });
   }
 });
 
-// List feed (exclude done by default)
+// List feed (exclude done by default), optimized for DB-side filtering and pagination
 router.get('/', async (req, res) => {
   const includeDone = req.query.includeDone === 'true';
   const mine = req.query.mine === 'true';
@@ -65,102 +72,79 @@ router.get('/', async (req, res) => {
   const pageSize = Math.max(1, Math.min(50, parseInt(req.query.pageSize, 10) || 10));
   const doPaginate = !!req.query.page; // only paginate if client requested a page
   try {
-    let posts = await Post.find().sort({ createdAt: -1 }).lean();
-
-    // Apply mine filter first: only my posts vs exclude my posts
+    // Build base filter
+    const filter = {};
     if (mine) {
-      posts = posts.filter((p) => String(p.addedByUserId) === String(req.user.uid));
+      filter.addedByUserId = req.user.uid;
     } else {
-      posts = posts.filter((p) => String(p.addedByUserId) !== String(req.user.uid));
+      filter.addedByUserId = { $ne: req.user.uid };
     }
 
+    // Exclude posts the user has marked done (unless includeDone)
+    let doneIds = [];
     if (!includeDone) {
       const done = await UserPostStatus.find({ userId: req.user.uid }).select('postId').lean();
-      const doneSet = new Set(done.map((d) => String(d.postId)));
-      const filtered = posts.filter((p) => !doneSet.has(String(p._id)));
-      const total = filtered.length;
-      const sliceStart = (page - 1) * pageSize;
-      const sliceEnd = sliceStart + pageSize;
-      const pageList = doPaginate ? filtered.slice(sliceStart, sliceEnd) : filtered;
-      const userIds = Array.from(new Set(pageList.map((p) => p.addedByUserId)));
-      const users = await User.find({ _id: { $in: userIds } }).select('name photoURL email').lean();
-      const byId = new Map(users.map((u) => [u._id, u]));
-      const ids = pageList.map((p) => p._id);
-      // Aggregate metrics (likes, comments) across all users
-      const metricsAgg = await UserPostStatus.aggregate([
-        { $match: { postId: { $in: ids } } },
-        {
-          $group: {
-            _id: '$postId',
-            likes: { $sum: { $cond: ['$liked', 1, 0] } },
-            comments: { $sum: { $cond: ['$commented', 1, 0] } }
-          }
-        }
-      ]);
-      const metricsById = new Map(metricsAgg.map((m) => [String(m._id), { likes: m.likes, comments: m.comments }]));
-      // Current user's engagement
-      const meStatuses = await UserPostStatus.find({ userId: req.user.uid, postId: { $in: ids } })
-        .select('postId liked commented')
-        .lean();
-      const meById = new Map(meStatuses.map((s) => [String(s.postId), { liked: !!s.liked, commented: !!s.commented }]));
-      const withSharer = pageList.map((p) => {
-        const u = byId.get(p.addedByUserId) || {};
-        const derivedName = u.name || (u.email ? String(u.email).split('@')[0] : 'Friend');
-        const avatar = u.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(derivedName)}&background=1f2937&color=f8fafc`;
-        return {
-          ...p,
-          sharer: {
-            name: derivedName,
-            photoURL: avatar
-          },
-          metrics: metricsById.get(String(p._id)) || { likes: 0, comments: 0 },
-          me: meById.get(String(p._id)) || { liked: false, commented: false }
-        };
-      });
-      if (doPaginate) {
-        return res.json({ items: withSharer, page, pageSize, total, hasMore: sliceEnd < total });
+      doneIds = done.map((d) => d.postId);
+      if (doneIds.length > 0) {
+        filter._id = { $nin: doneIds };
       }
-      return res.json(withSharer);
     }
 
-    const total = posts.length;
-    const sliceStart = (page - 1) * pageSize;
-    const sliceEnd = sliceStart + pageSize;
-    const pageList = doPaginate ? posts.slice(sliceStart, sliceEnd) : posts;
+    // Total count for pagination
+    const total = doPaginate ? await Post.countDocuments(filter) : 0;
+
+    // Page items directly from DB
+    const cursor = Post.find(filter)
+      .sort({ createdAt: -1 })
+      .select('url title addedByUserId createdAt')
+      .lean();
+    const pageList = doPaginate
+      ? await cursor.skip((page - 1) * pageSize).limit(pageSize)
+      : await cursor;
+
+    // Resolve sharer users
     const userIds = Array.from(new Set(pageList.map((p) => p.addedByUserId)));
     const users = await User.find({ _id: { $in: userIds } }).select('name photoURL email').lean();
     const byId = new Map(users.map((u) => [u._id, u]));
+
+    // Aggregate metrics only for posts in this page
     const ids = pageList.map((p) => p._id);
-    const metricsAgg = await UserPostStatus.aggregate([
-      { $match: { postId: { $in: ids } } },
-      {
-        $group: {
-          _id: '$postId',
-          likes: { $sum: { $cond: ['$liked', 1, 0] } },
-          comments: { $sum: { $cond: ['$commented', 1, 0] } }
-        }
-      }
-    ]);
+    const metricsAgg = ids.length
+      ? await UserPostStatus.aggregate([
+          { $match: { postId: { $in: ids } } },
+          {
+            $group: {
+              _id: '$postId',
+              likes: { $sum: { $cond: ['$liked', 1, 0] } },
+              comments: { $sum: { $cond: ['$commented', 1, 0] } }
+            }
+          }
+        ])
+      : [];
     const metricsById = new Map(metricsAgg.map((m) => [String(m._id), { likes: m.likes, comments: m.comments }]));
-    const meStatuses = await UserPostStatus.find({ userId: req.user.uid, postId: { $in: ids } })
-      .select('postId liked commented')
-      .lean();
+
+    // Current user's engagement for these posts
+    const meStatuses = ids.length
+      ? await UserPostStatus.find({ userId: req.user.uid, postId: { $in: ids } })
+          .select('postId liked commented')
+          .lean()
+      : [];
     const meById = new Map(meStatuses.map((s) => [String(s.postId), { liked: !!s.liked, commented: !!s.commented }]));
+
     const withSharer = pageList.map((p) => {
       const u = byId.get(p.addedByUserId) || {};
       const derivedName = u.name || (u.email ? String(u.email).split('@')[0] : 'Friend');
       const avatar = u.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(derivedName)}&background=1f2937&color=f8fafc`;
       return {
         ...p,
-        sharer: {
-          name: derivedName,
-          photoURL: avatar
-        },
+        sharer: { name: derivedName, photoURL: avatar },
         metrics: metricsById.get(String(p._id)) || { likes: 0, comments: 0 },
         me: meById.get(String(p._id)) || { liked: false, commented: false }
       };
     });
+
     if (doPaginate) {
+      const sliceEnd = page * pageSize;
       return res.json({ items: withSharer, page, pageSize, total, hasMore: sliceEnd < total });
     }
     return res.json(withSharer);

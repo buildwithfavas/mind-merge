@@ -19,9 +19,7 @@ export default async function handler(req, res) {
   const isHealth = url === '/api/health' || url.endsWith('/api/health');
   const isRoot = url === '/' || url === '';
   const origin = req.headers.origin || '';
-  const rid = Math.random().toString(36).slice(2, 10);
   const started = Date.now();
-  console.log(`[EDGE ${rid}] start method=${req.method} url=${url} origin=${origin}`);
 
   // Manual CORS preflight handling to ensure OPTIONS never 404s on platform
   if (req.method === 'OPTIONS') {
@@ -32,13 +30,11 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
     res.setHeader('Access-Control-Max-Age', '86400');
     res.statusCode = 204;
-    console.log(`[EDGE ${rid}] preflight (permissive) url=${url} origin=${origin} -> 204 in ${Date.now()-started}ms`);
     return res.end();
   }
 
   // Serve health without waiting for init
   if (isHealth) {
-    console.log(`[EDGE ${rid}] health route -> express`);
     return app(req, res);
   }
 
@@ -46,7 +42,6 @@ export default async function handler(req, res) {
   if (req.method === 'GET' && isRoot) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.statusCode = 200;
-    console.log(`[EDGE ${rid}] serving landing page /`);
     return res.end(`<!doctype html>
       <html>
         <head>
@@ -77,9 +72,8 @@ export default async function handler(req, res) {
   try {
     await ensureInitialized();
   } catch (e) {
-    console.error(`[EDGE ${rid}] Init failed before handling request:`, e);
+    console.error('Init failed before handling request:', e?.message || e);
     // Fall through to app anyway so global error handler / CORS can respond
   }
-  console.log(`[EDGE ${rid}] delegating to Express after init in ${Date.now()-started}ms`);
   return app(req, res);
 }

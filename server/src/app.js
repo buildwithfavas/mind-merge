@@ -25,24 +25,6 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIG
   .map((s) => s.trim())
   .filter(Boolean);
 
-// Boot log
-console.log('[BOOT] NODE_ENV=', process.env.NODE_ENV);
-console.log('[BOOT] ALLOWED_ORIGINS=', ALLOWED_ORIGINS);
-
-// Request ID + timing logger
-app.use((req, res, next) => {
-  const rid = Math.random().toString(36).slice(2, 10);
-  const start = Date.now();
-  req.id = rid;
-  const origin = req.headers.origin || null;
-  console.log(`[REQ ${rid}] -> ${req.method} ${req.originalUrl} origin=${origin}`);
-  res.on('finish', () => {
-    const ms = Date.now() - start;
-    console.log(`[REQ ${rid}] <- ${res.statusCode} ${req.method} ${req.originalUrl} (${ms}ms)`);
-  });
-  next();
-});
-
 // Security headers
 app.use(helmet({
   // Disable COOP to prevent blocking window.closed across cross-origin tabs
@@ -52,7 +34,6 @@ app.use(helmet({
 // CORS with explicit methods/headers
 const corsOptions = {
   origin: (origin, callback) => {
-    console.log('[CORS]', 'origin=', origin, 'allowed=', ALLOWED_ORIGINS);
     if (!origin) return callback(null, true);
     if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));

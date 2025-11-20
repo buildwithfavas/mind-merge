@@ -17,6 +17,7 @@ import api from './utils/api.js';
 import AdminDashboard from './pages/admin/AdminDashboard.jsx';
 import AdminUsers from './pages/admin/AdminUsers.jsx';
 import AdminPosts from './pages/admin/AdminPosts.jsx';
+import NotFound from './pages/NotFound.jsx';
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -128,7 +129,7 @@ export default function App() {
             <Route path="/admin" element={<Protected><AdminRoute><AdminDashboard /></AdminRoute></Protected>} />
             <Route path="/admin/users" element={<Protected><AdminRoute><AdminUsers /></AdminRoute></Protected>} />
             <Route path="/admin/posts" element={<Protected><AdminRoute><AdminPosts /></AdminRoute></Protected>} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
       </div>

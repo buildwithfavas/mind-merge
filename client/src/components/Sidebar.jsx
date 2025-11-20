@@ -109,7 +109,7 @@ function Item({ to, label, Icon, disabled }) {
 }
 
 export default function Sidebar() {
-  const { signOut } = useAuth();
+  const { signOut, role } = useAuth();
   return (
     <aside className="hidden md:block relative w-full h-full border-r border-zinc-700 bg-zinc-950/80 text-zinc-200 flex flex-col">
       <div className="py-3" />
@@ -118,7 +118,15 @@ export default function Sidebar() {
         <Item to="/completed" label="Completed Posts" Icon={IconCheck} />
         <Item to="/myposts" label="My Posts" Icon={IconFile} />
         <Item to="/profile" label="Profile" Icon={IconUser} />
-        <Item to="/friends" label="Friends (Coming soon)" Icon={IconUsers} disabled />
+        <Item to="/profiles" label="Linkedin Connect" Icon={IconUsers} />
+        <Item to="/friends" label="Connected" Icon={IconUsers} />
+        {role === 'admin' ? (
+          <>
+            <Item to="/admin" label="Admin" Icon={IconCog} />
+            <Item to="/admin/users" label="Admin Users" Icon={IconUsers} />
+            <Item to="/admin/posts" label="Admin Posts" Icon={IconFile} />
+          </>
+        ) : null}
         <Item to="#" label="Chat (Coming soon)" Icon={IconChat} disabled />
         <Item to="#" label="Twitter Connect (Coming soon)" Icon={IconTwitter} disabled />
       </nav>

@@ -8,11 +8,15 @@ import Feed from './pages/Feed.jsx';
 import Friends from './pages/Friends.jsx';
 import MyPosts from './pages/MyPosts.jsx';
 import Profile from './pages/Profile.jsx';
+import Profiles from './pages/Profiles.jsx';
 import SignIn from './pages/SignIn.jsx';
 import SignUp from './pages/SignUp.jsx';
 import Submit from './pages/Submit.jsx';
 import { useAuth } from './state/AuthContext.jsx';
 import api from './utils/api.js';
+import AdminDashboard from './pages/admin/AdminDashboard.jsx';
+import AdminUsers from './pages/admin/AdminUsers.jsx';
+import AdminPosts from './pages/admin/AdminPosts.jsx';
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -48,6 +52,19 @@ function Protected({ children }) {
   return children;
 }
 
+function AdminRoute({ children }) {
+  const { role, loading, user } = useAuth();
+  if (loading) {
+    return (
+      <div className="fixed inset-0 grid place-items-center bg-zinc-950">
+        <div className="h-10 w-10 rounded-full border-2 border-zinc-700 border-t-white animate-spin" />
+      </div>
+    );
+  }
+  if (!user) return <Navigate to="/signin" replace />;
+  if (role !== 'admin') return <Navigate to="/feed" replace />;
+  return children;
+}
 
 export default function App() {
   const location = useLocation();
@@ -107,6 +124,10 @@ export default function App() {
             <Route path="/friends" element={<Protected><Friends /></Protected>} />
             <Route path="/myposts" element={<Protected><MyPosts /></Protected>} />
             <Route path="/profile" element={<Protected><Profile /></Protected>} />
+            <Route path="/profiles" element={<Protected><Profiles /></Protected>} />
+            <Route path="/admin" element={<Protected><AdminRoute><AdminDashboard /></AdminRoute></Protected>} />
+            <Route path="/admin/users" element={<Protected><AdminRoute><AdminUsers /></AdminRoute></Protected>} />
+            <Route path="/admin/posts" element={<Protected><AdminRoute><AdminPosts /></AdminRoute></Protected>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

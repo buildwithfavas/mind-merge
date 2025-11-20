@@ -165,6 +165,28 @@ router.post('/respond', async (req, res) => {
   }
 });
 
+// POST /api/connections/mark { addresseeId }
+// Instantly records a connection as accepted (used when users connect externally, e.g., on LinkedIn)
+router.post('/mark', async (req, res) => {
+  try {
+    const me = req.user.uid;
+    const { addresseeId } = req.body || {};
+    if (!addresseeId || addresseeId === me) return res.status(400).json({ error: 'Invalid addressee' });
+
+    const { aId, bId } = pair(me, addresseeId);
+    // Upsert as accepted regardless of prior state
+    await Connection.findOneAndUpdate(
+      { aId, bId },
+      { aId, bId, requesterId: me, status: 'accepted' },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('mark connection error', e);
+    res.status(500).json({ error: 'Failed to mark connection' });
+  }
+});
+
 // DELETE /api/connections/unfriend/:userId
 router.delete('/unfriend/:userId', async (req, res) => {
   try {

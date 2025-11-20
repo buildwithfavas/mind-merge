@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { app, auth, googleProvider } from '../utils/firebase.js';
 import { onIdTokenChanged, signInWithPopup, signOut as fbSignOut } from 'firebase/auth';
+import api from '../utils/api.js';
 
 const AuthCtx = createContext(null);
 
@@ -16,20 +17,39 @@ export function AuthProvider({ children }) {
         setUser(u);
         setIdToken(token);
         localStorage.setItem('idToken', token);
+        // hydrate role/blocked
+        try {
+          const { data } = await api.get('/me');
+          setMeta({ role: data.role || 'user', blocked: !!data.blocked, blockedReason: data.blockedReason || null });
+        } catch {
+          setMeta({ role: 'user', blocked: false, blockedReason: null });
+        }
       } else {
         setUser(null);
         setIdToken(null);
         localStorage.removeItem('idToken');
+        setMeta({ role: 'user', blocked: false, blockedReason: null });
       }
       setLoading(false);
     });
     return () => unsub();
   }, []);
 
+  const [meta, setMeta] = useState({ role: 'user', blocked: false, blockedReason: null });
+
   const value = useMemo(() => ({
     user,
     idToken,
     loading,
+    role: meta.role,
+    blocked: meta.blocked,
+    blockedReason: meta.blockedReason,
+    refreshMe: async () => {
+      try {
+        const { data } = await api.get('/me');
+        setMeta({ role: data.role || 'user', blocked: !!data.blocked, blockedReason: data.blockedReason || null });
+      } catch {}
+    },
     signIn: async () => {
       const cred = await signInWithPopup(auth, googleProvider);
       const token = await cred.user.getIdToken(true);
@@ -38,7 +58,7 @@ export function AuthProvider({ children }) {
     signOut: async () => {
       await fbSignOut(auth);
     }
-  }), [user, idToken, loading]);
+  }), [user, idToken, loading, meta]);
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 }

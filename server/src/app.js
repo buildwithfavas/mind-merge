@@ -9,6 +9,8 @@ import auth from './middleware/auth.js';
 import postsRouter from './routes/posts.js';
 import meRouter from './routes/me.js';
 import connectionsRouter from './routes/connections.js';
+import usersRouter from './routes/users.js';
+import adminRouter from './routes/admin/index.js';
 
 dotenv.config();
 
@@ -32,6 +34,7 @@ app.use(helmet({
 // CORS with explicit methods/headers
 const corsOptions = {
   origin: (origin, callback) => {
+    console.log('CORS origin check:', origin, 'allowed:', ALLOWED_ORIGINS);
     if (!origin) return callback(null, true);
     if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));
@@ -78,6 +81,8 @@ app.use('/api', (req, res, next) => {
 app.use('/api/posts', postsRouter);
 app.use('/api/me', meRouter);
 app.use('/api/connections', connectionsRouter);
+app.use('/api/users', usersRouter);
+app.use('/api/admin', adminRouter);
 
 // Global error handler (last)
 // eslint-disable-next-line no-unused-vars

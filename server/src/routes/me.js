@@ -7,12 +7,16 @@ import { isValidLinkedInUrl, isValidHttpsUrl } from '../utils/validators.js';
 const router = express.Router();
 
 router.get('/', async (req, res) => {
+  const me = await User.findById(req.user.uid).select('linkedinUrl role blocked blockedReason').lean();
   return res.json({
     uid: req.user.uid,
     email: req.user.email,
     name: req.user.name,
     picture: req.user.picture,
-    linkedinUrl: (await User.findById(req.user.uid).select('linkedinUrl').lean())?.linkedinUrl || null
+    role: me?.role || 'user',
+    blocked: !!me?.blocked,
+    blockedReason: me?.blockedReason || null,
+    linkedinUrl: me?.linkedinUrl || null
   });
 });
 

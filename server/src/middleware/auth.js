@@ -1,5 +1,6 @@
 import { getFirebaseAdmin } from '../config/firebaseAdmin.js';
 import User from '../models/User.js';
+import ADMIN_EMAILS from '../config/adminEmails.js';
 
 export default async function auth(req, res, next) {
   try {
@@ -46,6 +47,22 @@ export default async function auth(req, res, next) {
         { _id: req.user.uid, $or: [ { photoURL: { $exists: false } }, { photoURL: null }, { photoURL: '' } ] },
         { $set: { photoURL: req.user.picture } }
       );
+    }
+
+    // Elevate admins from hardcoded list if email matches
+    const adminEmails = Array.isArray(ADMIN_EMAILS) ? ADMIN_EMAILS : [];
+    if (req.user.email && adminEmails.includes(req.user.email)) {
+      await User.updateOne({ _id: req.user.uid }, { $set: { role: 'admin' } });
+    }
+
+    // Fetch role/blocked status
+    const me = await User.findById(req.user.uid).select('role blocked blockedReason blockedAt').lean();
+    req.user.role = me?.role || 'user';
+    req.user.blocked = !!me?.blocked;
+    req.user.blockedReason = me?.blockedReason || null;
+
+    if (req.user.blocked) {
+      return res.status(423).json({ error: 'Account blocked', reason: req.user.blockedReason || null });
     }
 
     next();
